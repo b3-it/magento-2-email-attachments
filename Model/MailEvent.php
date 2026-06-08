@@ -32,12 +32,12 @@ use Magento\Sales\Model\Order\Invoice;
 use Magento\Sales\Model\Order\Shipment;
 use Magento\Store\Model\Store;
 use Mageplaza\EmailAttachments\Helper\Data;
-use Zend\Mail\Message;
-use Zend\Mime\Mime;
-use Zend\Mime\Part;
+use Laminas\Mail\Message;
+use Laminas\Mime\Mime;
+use Laminas\Mime\Part;
 use Zend_Mail;
-use Zend_Mime;
-use Zend_Mime_Decode;
+use Laminas\Mime\Mime as Zend_Mime;
+use Laminas\Mime\Decode as Zend_Mime_Decode;
 use Zend_Pdf;
 use Zend_Pdf_Exception;
 
@@ -276,7 +276,7 @@ class MailEvent
         $part->setType(Mime::TYPE_HTML);
         array_unshift($this->parts, $part);
 
-        $bodyPart = new \Zend\Mime\Message();
+        $bodyPart = new \Laminas\Mime\Message();
         $bodyPart->setParts($this->parts);
         $message->setBody($bodyPart);
     }

@@ -27,10 +27,10 @@ use Magento\Framework\Mail\AddressFactory;
 use Magento\Framework\Mail\Exception\InvalidArgumentException;
 use Magento\Framework\Mail\MimeMessageInterface;
 use Magento\Framework\Mail\MimeMessageInterfaceFactory;
-use Zend\Mail\Address as ZendAddress;
-use Zend\Mail\AddressList;
-use Zend\Mail\Message as ZendMessage;
-use Zend\Mime\Message as ZendMimeMessage;
+use Laminas\Mail\Address as ZendAddress;
+use Laminas\Mail\AddressList;
+use Laminas\Mail\Message as ZendMessage;
+use Laminas\Mime\Message as ZendMimeMessage;
 
 /**
  * Class EmailMessage

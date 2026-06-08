@@ -29,8 +29,8 @@ use Magento\Framework\Exception\MailException;
 use Magento\Framework\Mail\MailMessageInterface;
 use Magento\Store\Model\ScopeInterface;
 use Traversable;
-use Zend\Mail\Message;
-use Zend\Mail\Transport\Sendmail;
+use Laminas\Mail\Message;
+use Laminas\Mail\Transport\Sendmail;
 
 /**
  * Class that responsible for filling some message data before transporting it.
