@@ -8,16 +8,13 @@
  * available through the world-wide-web at this URL:
  * https://www.mageplaza.com/LICENSE.txt
  *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade this extension to newer
- * version in the future.
- *
  * @category    Mageplaza
  * @package     Mageplaza_EmailAttachments
  * @copyright   Copyright (c) Mageplaza (https://www.mageplaza.com/)
  * @license     https://www.mageplaza.com/LICENSE.txt
  */
+
+declare(strict_types=1);
 
 namespace Mageplaza\EmailAttachments\Model;
 
@@ -32,96 +29,46 @@ use Magento\Sales\Model\Order\Shipment;
 use Magento\Store\Model\Store;
 use Mageplaza\EmailAttachments\Helper\Data;
 use Mageplaza\EmailAttachments\Mail\EmailMessage;
-use Laminas\Mail\Message;
-use Laminas\Mime\Mime;
-use Laminas\Mime\Part;
-use Laminas\Mime\Mime as Zend_Mime;
-use Laminas\Mime\Decode as Zend_Mime_Decode;
-use Zend_Pdf;
-use Zend_Pdf_Exception;
 
 /**
- * Class MailEvent
- * @package Mageplaza\EmailAttachments\Model
+ * Dispatched by TransportFactory plugin to attach PDFs and files to order emails.
  */
 class MailEvent
 {
-    /**
-     * @var array
-     */
     const MIME_TYPES = [
-        'txt' => 'text/plain',
-        'pdf' => 'application/pdf',
-        'doc' => 'application/msword',
+        'txt'  => 'text/plain',
+        'pdf'  => 'application/pdf',
+        'doc'  => 'application/msword',
         'docx' => 'application/msword',
     ];
 
     /**
+     * Pending attachments: each entry is ['data' => string, 'filename' => string, 'mimeType' => string]
+     *
      * @var array
      */
-    private $parts = [];
+    private array $parts = [];
 
-    /**
-     * @var Mail
-     */
-    private $mail;
-
-    /**
-     * @var Data
-     */
-    private $dataHelper;
-
-    /**
-     * @var Filesystem
-     */
-    private $filesystem;
-
-    /**
-     * @var ObjectManagerInterface
-     */
-    private $objectManager;
-
-    /**
-     * @var SessionManagerInterface
-     */
-    private $coreSession;
-
-    /**
-     * MailEvent constructor.
-     *
-     * @param Mail $mail
-     * @param Data $dataHelper
-     * @param Filesystem $filesystem
-     * @param ObjectManagerInterface $objectManager
-     * @param SessionManagerInterface $coreSession
-     */
     public function __construct(
-        Mail $mail,
-        Data $dataHelper,
-        Filesystem $filesystem,
-        ObjectManagerInterface $objectManager,
-        SessionManagerInterface $coreSession
-    ) {
-        $this->mail = $mail;
-        $this->dataHelper = $dataHelper;
-        $this->filesystem = $filesystem;
-        $this->objectManager = $objectManager;
-        $this->coreSession = $coreSession;
-    }
+        private readonly Mail $mail,
+        private readonly Data $dataHelper,
+        private readonly Filesystem $filesystem,
+        private readonly ObjectManagerInterface $objectManager,
+        private readonly SessionManagerInterface $coreSession
+    ) {}
 
     /**
-     * @param EmailMessage $message
-     *
-     * @throws Zend_Pdf_Exception
+     * @throws \Zend_Pdf_Exception
      */
-    public function dispatch(EmailMessage $message)
+    public function dispatch(EmailMessage $message): void
     {
         $templateVars = $this->mail->getTemplateVars();
         if (!$templateVars) {
             return;
         }
+
         /** @var Store|null $store */
-        $store = isset($templateVars['store']) ? $templateVars['store'] : null;
+        $store = $templateVars['store'] ?? null;
         $storeId = $store ? $store->getId() : null;
 
         if (!$this->dataHelper->isEnabled($storeId)) {
@@ -132,29 +79,24 @@ class MailEvent
             /** @var Order|Invoice|Shipment|Creditmemo $obj */
             $obj = $templateVars[$emailType];
 
-            $attachmentPDF = null;
-            if ($this->dataHelper->checkPdfInvoiceIsEnable()) {
-                // @phpstan-ignore-next-line (Magento session magic getter via __call)
-                $attachmentPDF = $this->coreSession->getAttachPdf();
-                if (is_object($attachmentPDF)) {
-                    $this->parts[] = $attachmentPDF;
-                }
-            }
+            $hasAttachment = false;
 
             if ($this->dataHelper->isEnabledAttachPdf($storeId)
-                && in_array($emailType, $this->dataHelper->getAttachPdf($storeId), true)) {
-                $this->setPdfAttachment($emailType, $obj, $attachmentPDF);
-                $attachmentPDF = true;
+                && in_array($emailType, $this->dataHelper->getAttachPdf($storeId), true)
+            ) {
+                $this->setPdfAttachment($emailType, $obj);
+                $hasAttachment = true;
             }
 
             if ($this->dataHelper->getTacFile($storeId)
-                && in_array($emailType, $this->dataHelper->getAttachTac($storeId), true)) {
+                && in_array($emailType, $this->dataHelper->getAttachTac($storeId), true)
+            ) {
                 $this->setTACAttachment($storeId);
-                $attachmentPDF = true;
+                $hasAttachment = true;
             }
 
-            if ($this->dataHelper->versionCompare('2.2.9') && $attachmentPDF) {
-                $this->setBodyAttachment($message);
+            if ($hasAttachment) {
+                $this->applyAttachments($message);
                 $this->parts = [];
             }
 
@@ -170,97 +112,51 @@ class MailEvent
         $this->mail->setTemplateVars([]);
     }
 
-    /**
-     * @param $templateVars
-     *
-     * @return bool|string
-     */
-    private function getEmailType($templateVars)
+    private function getEmailType(array $templateVars): string|false
     {
-        $emailTypes = ['invoice', 'shipment', 'creditmemo', 'order'];
-
-        foreach ($emailTypes as $emailType) {
+        foreach (['invoice', 'shipment', 'creditmemo', 'order'] as $emailType) {
             if (isset($templateVars[$emailType])) {
                 return $emailType;
             }
         }
-
         return false;
     }
 
     /**
-     * @param $emailType
-     * @param $obj
-     * @param mixed $attachmentPDF
-     *
-     * @throws Zend_Pdf_Exception
+     * @throws \Zend_Pdf_Exception
      */
-    private function setPdfAttachment($emailType, $obj, $attachmentPDF = null)
+    private function setPdfAttachment(string $emailType, Order|Invoice|Shipment|Creditmemo $obj): void
     {
-        if (is_object($attachmentPDF)) {
-            return;
-        }
-
         $pdfModel = 'Magento\Sales\Model\Order\Pdf\\' . ucfirst($emailType);
-        /** @var Zend_Pdf $pdf */
+        /** @var \Zend_Pdf $pdf */
         $pdf = $this->objectManager->create($pdfModel)->getPdf([$obj]);
 
-        $attachment = new Part($pdf->render());
-        $attachment->type = 'application/pdf';
-        $attachment->encoding = Zend_Mime::ENCODING_BASE64;
-        $attachment->disposition = Zend_Mime::DISPOSITION_ATTACHMENT;
-        $attachment->filename = $emailType . $obj->getIncrementId() . '.pdf';
-
-        $this->parts[] = $attachment;
+        $this->parts[] = [
+            'data'     => $pdf->render(),
+            'filename' => $emailType . $obj->getIncrementId() . '.pdf',
+            'mimeType' => 'application/pdf',
+        ];
     }
 
-    /**
-     * @param null $storeId
-     */
-    private function setTACAttachment($storeId = null)
+    private function setTACAttachment(?int $storeId = null): void
     {
         [$content, $ext, $mimeType] = $this->getTacFile($storeId);
 
-        $attachment = new Part($content);
-        $attachment->type = $mimeType;
-        $attachment->encoding = Zend_Mime::ENCODING_BASE64;
-        $attachment->disposition = Zend_Mime::DISPOSITION_ATTACHMENT;
-        $attachment->filename = __('terms_and_conditions') . '.' . $ext;
-
-        $this->parts[] = $attachment;
+        $this->parts[] = [
+            'data'     => $content,
+            'filename' => (string)__('terms_and_conditions') . '.' . $ext,
+            'mimeType' => $mimeType,
+        ];
     }
 
-    /**
-     * @param EmailMessage $message
-     */
-    private function setBodyAttachment(EmailMessage $message)
+    private function applyAttachments(EmailMessage $message): void
     {
-        $body = Message::fromString($message->getRawMessage())->getBody();
-        if ($this->dataHelper->versionCompare('2.3.3')) {
-            $body = Zend_Mime_Decode::decodeQuotedPrintable($body);
+        foreach ($this->parts as $part) {
+            $message->addAttachment($part['data'], $part['filename'], $part['mimeType']);
         }
-
-        $part = new Part($body);
-        $part->setCharset('utf-8');
-        $part->setEncoding(Mime::ENCODING_BASE64);
-        if ($this->dataHelper->versionCompare('2.3.3')) {
-            $part->setEncoding(Mime::ENCODING_QUOTEDPRINTABLE);
-            $part->setDisposition(Mime::DISPOSITION_INLINE);
-        }
-        $part->setType(Mime::TYPE_HTML);
-        array_unshift($this->parts, $part);
-
-        $bodyPart = new \Laminas\Mime\Message();
-        $bodyPart->setParts($this->parts);
-        $message->setBody($bodyPart);
     }
 
-    /**
-     * @param null $storeId
-     *
-     * @return array
-     */
-    private function getTacFile($storeId = null)
+    private function getTacFile(?int $storeId = null): array
     {
         $mediaDirectory = $this->filesystem->getDirectoryRead(DirectoryList::MEDIA);
         $tacPath = $this->dataHelper->getTacFile($storeId);
