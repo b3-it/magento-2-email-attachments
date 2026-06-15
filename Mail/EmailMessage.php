@@ -70,20 +70,16 @@ class EmailMessage
      * @param string|null $encoding
      *
      * @throws InvalidArgumentException
-     *
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList)
-     * @SuppressWarnings(PHPMD.NPathComplexity)
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     public function __construct(
         $body,
         array $to,
         $mimeMessageFactory = null,
         $addressFactory = null,
-        array $from = null,
-        array $cc = null,
-        array $bcc = null,
-        array $replyTo = null,
+        ?array $from = null,
+        ?array $cc = null,
+        ?array $bcc = null,
+        ?array $replyTo = null,
         $sender = null,
         $subject = '',
         $encoding = ''
@@ -104,9 +100,7 @@ class EmailMessage
         if (count($to) < 1) {
             throw new InvalidArgumentException('Email message must have at list one addressee');
         }
-        if ($to) {
-            $this->message->setTo($this->convertAddressArrayToAddressList($to));
-        }
+        $this->message->setTo($this->convertAddressArrayToAddressList($to));
         if ($replyTo) {
             $this->message->setReplyTo($this->convertAddressArrayToAddressList($replyTo));
         }
@@ -190,8 +184,8 @@ class EmailMessage
      */
     public function getSender()
     {
-        /** @var ZendAddress $zendSender */
-        if (!$zendSender = $this->message->getSender()) {
+        $zendSender = $this->message->getSender();
+        if (!$zendSender) {
             return null;
         }
 
@@ -216,8 +210,10 @@ class EmailMessage
      */
     public function getBody()
     {
+        /** @var ZendMimeMessage $body */
+        $body = $this->message->getBody();
         return $this->mimeMessageFactory->create(
-            ['parts' => $this->message->getBody()->getParts()]
+            ['parts' => $body->getParts()]
         );
     }
 

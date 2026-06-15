@@ -22,6 +22,7 @@
 namespace Mageplaza\EmailAttachments\Mail;
 
 use Magento\Framework\Mail\TransportInterfaceFactory;
+use Mageplaza\EmailAttachments\Mail\EmailMessage;
 use Mageplaza\EmailAttachments\Model\MailEvent;
 use Zend_Pdf_Exception;
 
@@ -55,7 +56,7 @@ class TransportFactory
      */
     public function beforeCreate(TransportInterfaceFactory $subject, array $data = [])
     {
-        if (isset($data['message'])) {
+        if (isset($data['message']) && $data['message'] instanceof EmailMessage) {
             $this->mailEvent->dispatch($data['message']);
         }
 
