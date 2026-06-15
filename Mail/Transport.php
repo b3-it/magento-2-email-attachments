@@ -26,6 +26,7 @@ namespace Mageplaza\EmailAttachments\Mail;
 use Exception;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Exception\MailException;
+use Magento\Framework\Mail\EmailMessageInterface;
 use Magento\Framework\Mail\MailMessageInterface;
 use Magento\Store\Model\ScopeInterface;
 use Traversable;
@@ -114,7 +115,7 @@ class Transport extends \Magento\Email\Model\Transport
     /**
      * @inheritdoc
      */
-    public function getMessage()
+    public function getMessage(): EmailMessageInterface
     {
         return $this->message;
     }
