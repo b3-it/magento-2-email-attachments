@@ -16,17 +16,23 @@
 
 namespace Mageplaza\EmailAttachments\Mail;
 
+use Magento\Framework\Mail\AddressFactory;
+use Magento\Framework\Mail\MimeMessageInterfaceFactory;
 use Magento\Framework\ObjectManagerInterface;
 
 class EmailMessageFactory
 {
     public function __construct(
         private readonly ObjectManagerInterface $objectManager,
+        private readonly MimeMessageInterfaceFactory $mimeMessageFactory,
+        private readonly AddressFactory $addressFactory,
         private readonly string $instanceName = EmailMessage::class
     ) {}
 
     public function create(array $data = []): EmailMessage
     {
+        $data['mimeMessageFactory'] = $data['mimeMessageFactory'] ?? $this->mimeMessageFactory;
+        $data['addressFactory'] = $data['addressFactory'] ?? $this->addressFactory;
         return $this->objectManager->create($this->instanceName, $data);
     }
 }
