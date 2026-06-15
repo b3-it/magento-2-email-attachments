@@ -93,7 +93,7 @@ class Transport extends \Magento\Email\Model\Transport
     /**
      * @inheritdoc
      */
-    public function sendMessage()
+    public function sendMessage(): void
     {
         try {
             $zendMessage = Message::fromString($this->message->getRawMessage())->setEncoding('utf-8');
