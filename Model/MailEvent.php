@@ -112,7 +112,7 @@ class MailEvent
         $this->mail->setTemplateVars([]);
     }
 
-    private function getEmailType(array $templateVars): string|false
+    private function getEmailType(array|\ArrayAccess $templateVars): string|false
     {
         foreach (['invoice', 'shipment', 'creditmemo', 'order'] as $emailType) {
             if (isset($templateVars[$emailType])) {
@@ -138,7 +138,7 @@ class MailEvent
         ];
     }
 
-    private function setTACAttachment(?int $storeId = null): void
+    private function setTACAttachment(int|string|null $storeId = null): void
     {
         [$content, $ext, $mimeType] = $this->getTacFile($storeId);
 
@@ -156,7 +156,7 @@ class MailEvent
         }
     }
 
-    private function getTacFile(?int $storeId = null): array
+    private function getTacFile(int|string|null $storeId = null): array
     {
         $mediaDirectory = $this->filesystem->getDirectoryRead(DirectoryList::MEDIA);
         $tacPath = $this->dataHelper->getTacFile($storeId);
